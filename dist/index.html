@@ -73,7 +73,6 @@ svg line { stroke: currentColor; stroke-width: 1.2; }
       <select id="view"><option value="phrase">Phrase structure</option><option value="xbar">X-bar and movement</option></select></div>
     </div>
     <p id="status" role="status"></p>
-    <a href="#wh-lesson">Learn about WH-movement</a>
   </form>
   <section aria-labelledby="diagram-heading">
     <h2 id="diagram-heading">Syntax tree</h2>
@@ -110,7 +109,7 @@ svg line { stroke: currentColor; stroke-width: 1.2; }
       <p>Check the pronounced words in order, find the subject and verb, and see what each modifier attaches to. Compare the labels with the conventions used in your class. Use the bracket editor to try another grouping or to draw an analysis you already have.</p>
     </details>
   </section>
-  <section class="lesson" id="wh-lesson" aria-labelledby="wh-heading">
+  <section class="lesson" id="wh-lesson" hidden aria-labelledby="wh-heading">
     <h2 id="wh-heading">WH-movement</h2>
     <p>In many English questions, a WH-phrase such as <em>what</em> or <em>which book</em> appears at the beginning of its clause. In an X-bar analysis, it moves to the specifier of CP (Spec-CP), leaving a trace in the position it came from.</p>
     <div class="lesson-example">
@@ -600,6 +599,7 @@ function terminalWords(tree) {
 }
 
 function generate() {
+  $("wh-lesson").hidden = $("examples").value !== "wh-trace";
   const status = $("status");
   try {
     const parsed = parseSentence($("sentence").value);
@@ -635,20 +635,23 @@ $("question-example").addEventListener("click", () => {
 });
 $("examples").addEventListener("change", () => {
   const sentence = examples[$("examples").value];
-  if (!sentence) return;
+  if (!sentence) {
+    $("wh-lesson").hidden = true;
+    return;
+  }
   $("sentence").value = sentence;
   if (["movement", "wh-trace"].includes($("examples").value)) $("view").value = "xbar";
   generate();
 });
-function drawLessonExample(sentence, style, exampleKey) {
+function drawLessonExample(sentence, style) {
   $("sentence").value = sentence;
   $("view").value = style;
-  $("examples").value = exampleKey;
+  $("examples").value = "wh-trace";
   generate();
   $("diagram").focus();
 }
-$("wh-statement").addEventListener("click", () => drawLessonExample("John bought a book.", "phrase", ""));
-$("wh-trace").addEventListener("click", () => drawLessonExample(examples["wh-trace"], "xbar", "wh-trace"));
+$("wh-statement").addEventListener("click", () => drawLessonExample("John bought a book.", "phrase"));
+$("wh-trace").addEventListener("click", () => drawLessonExample(examples["wh-trace"], "xbar"));
 
 $("apply").addEventListener("click", () => {
   try {
