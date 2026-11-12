@@ -16,6 +16,11 @@ select { max-width: 100%; padding: 7px; border: 1px solid #a9b5ab; border-radius
 .examples { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px 20px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 .toolbar label { margin: 0; }
+.lesson table { border-collapse: collapse; width: 100%; max-width: 620px; }
+.lesson th, .lesson td { text-align: left; padding: 7px 12px; border-bottom: 1px solid #dcded2; }
+.lesson th:first-child { width: 32%; }
+.lesson ol { padding-left: 24px; }
+.lesson-example { padding: 10px 14px; border-left: 3px solid #245448; background: #edf3ed; }
 .guide dt { font-weight: 700; }
 .guide dd { margin: 0 0 8px; }
 input, textarea { box-sizing: border-box; width: 100%; border: 1px solid #a9b5ab; border-radius: 7px; padding: 9px; }
@@ -50,6 +55,7 @@ svg line { stroke: currentColor; stroke-width: 1.2; }
         <optgroup label="By purpose">
           <option value="statement">Declarative (statement)</option>
           <option value="yes-no">Interrogative (yes/no question)</option>
+          <option value="wh-trace">WH-movement (object trace)</option>
           <option value="movement">Reference image (WH and auxiliary movement)</option>
           <option value="wh">Interrogative (WH question)</option>
           <option value="imperative">Imperative (command)</option>
@@ -67,6 +73,7 @@ svg line { stroke: currentColor; stroke-width: 1.2; }
       <select id="view"><option value="phrase">Phrase structure</option><option value="xbar">X-bar and movement</option></select></div>
     </div>
     <p id="status" role="status"></p>
+    <a href="#wh-lesson">Learn about WH-movement</a>
   </form>
   <section aria-labelledby="diagram-heading">
     <h2 id="diagram-heading">Syntax tree</h2>
@@ -103,12 +110,53 @@ svg line { stroke: currentColor; stroke-width: 1.2; }
       <p>Check the pronounced words in order, find the subject and verb, and see what each modifier attaches to. Compare the labels with the conventions used in your class. Use the bracket editor to try another grouping or to draw an analysis you already have.</p>
     </details>
   </section>
+  <section class="lesson" id="wh-lesson" aria-labelledby="wh-heading">
+    <h2 id="wh-heading">WH-movement</h2>
+    <p>In many English questions, a WH-phrase such as <em>what</em> or <em>which book</em> appears at the beginning of its clause. In an X-bar analysis, it moves to the specifier of CP (Spec-CP), leaving a trace in the position it came from.</p>
+    <div class="lesson-example">
+      <p><strong>Statement</strong> · John bought a book.</p>
+      <p><strong>Question</strong> · What did John buy?</p>
+      <p><strong>With the trace shown</strong> · What<sub>i</sub> did John buy t<sub>i</sub>?</p>
+    </div>
+    <ol>
+      <li>In the statement, <em>a book</em> is the object of <em>bought</em>. In the question, <em>what</em> asks for that object.</li>
+      <li><em>What</em> moves to Spec-CP. The matching index <em>i</em> links it to the trace after <em>buy</em>.</li>
+      <li>The auxiliary <em>did</em> appears before the subject and carries past tense, so the main verb is <em>buy</em>.</li>
+    </ol>
+    <div class="toolbar">
+      <button type="button" class="secondary" id="wh-statement">Draw the statement</button>
+      <button type="button" id="wh-trace">Draw the question with its trace</button>
+    </div>
+    <p>Movement can cross a clause boundary, as in “What<sub>i</sub> did Maya say that John bought t<sub>i</sub>?” An embedded question can restrict this movement. For example, “What<sub>i</sub> did Maya wonder whether John bought t<sub>i</sub>?” is often judged less acceptable. This is a WH-island effect.</p>
+    <p><a href="https://ecampusontario.pressbooks.pub/essentialsoflinguistics2/chapter/x-bar-theory-subject-aux-inversion-as-head-movement/">Read more in <em>Essentials of Linguistics</em></a></p>
+    <details open>
+      <summary>Important abbreviations</summary>
+      <table aria-label="Syntax tree abbreviations">
+        <thead><tr><th scope="col">Abbreviation</th><th scope="col">Meaning</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">N</th><td>Noun</td></tr>
+          <tr><th scope="row">V / Verb</th><td>Verb</td></tr>
+          <tr><th scope="row">A / Adj.</th><td>Adjective</td></tr>
+          <tr><th scope="row">Adv.</th><td>Adverb</td></tr>
+          <tr><th scope="row">D / Det.</th><td>Determiner</td></tr>
+          <tr><th scope="row">NP</th><td>Noun phrase</td></tr>
+          <tr><th scope="row">VP</th><td>Verb phrase</td></tr>
+          <tr><th scope="row">PP</th><td>Prepositional phrase</td></tr>
+          <tr><th scope="row">S / TP</th><td>Sentence / tense phrase</td></tr>
+          <tr><th scope="row">CP</th><td>Complementizer phrase</td></tr>
+          <tr><th scope="row">Spec-CP</th><td>Specifier of CP</td></tr>
+          <tr><th scope="row">tᵢ</th><td>Trace with index <em>i</em></td></tr>
+        </tbody>
+      </table>
+    </details>
+  </section>
 </main>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
 const example = "The boy with red shorts kicked the ball and scored a goal.";
 const examples = {
+  "wh-trace": "What did John buy?",
   movement: "Where did you get that hat?",
   statement: "The small dog chased the cat.",
   "yes-no": "Did the boy kick the ball?",
@@ -340,40 +388,40 @@ function tensePhrase(subject, predicate, tense = node("T", "Ø")) {
     node("T′", tense, predicate));
 }
 
-function xbarQuestion(tree) {
+function xbarQuestion(tree, showTrace) {
   const wh = tree.children.find(child => child.label === "WH");
   const subject = tree.children.find(child => child.label === "NP");
   const aux = tree.children.find(child => child.label === "Aux.");
   const predicate = tree.children.find(child => child.label === "VP");
   const where = wh?.children[0]?.children[0]?.toLowerCase() === "where";
-  const whLabel = where ? "AP[+wh]" : "WH[+wh]";
+  const whLabel = showTrace ? "NPᵢ [+wh]" : where ? "AP[+wh]" : "WH[+wh]";
   const moved = wh ? node("@wh:" + whLabel, ...terminalWords(wh)) : null;
   const cLabel = wh ? "C\n[+Q] [+wh]" : "C\n[+Q]";
   const c = aux ? node("@aux:" + cLabel, ...aux.children) : node(cLabel, "Ø");
   const t = aux ? node("~aux:T", ...aux.children) : node("T", "Ø");
-  const children = predicate ? predicate.children.map(xbar) : [];
+  const children = predicate ? predicate.children.map(child => xbar(child)) : [];
   if (wh && predicate) {
-    const copy = where
+    const copy = showTrace ? node("~wh:NP", "tᵢ") : where
       ? node("~wh:" + whLabel, node("A′", node("A", ...terminalWords(wh))))
       : node("~wh:" + whLabel, ...terminalWords(wh));
     children.splice(where ? 1 : children.length, 0, copy);
   }
   if (!subject && !predicate && !aux) {
     return node("CP", ...(moved ? [moved] : []), node("C′", c,
-      ...tree.children.filter(child => child !== wh).map(xbar)));
+      ...tree.children.filter(child => child !== wh).map(child => xbar(child))));
   }
   return node("CP", ...(moved ? [moved] : []),
     node("C′", c, tensePhrase(subject, project("V", children.length ? children : ["Ø"]), t)));
 }
 
-function xbar(tree) {
+function xbar(tree, showTrace = false) {
   if (typeof tree === "string") return tree;
-  if (tree.label === "Question") return xbarQuestion(tree);
+  if (tree.label === "Question") return xbarQuestion(tree, showTrace);
   if (tree.label === "Sentence") {
     const [subject, predicate] = tree.children;
     const [first, ...rest] = predicate.children;
     if (first?.label === "Aux.") {
-      return tensePhrase(subject, project("V", rest.length ? rest.map(xbar) : ["Ø"]), xbar(first));
+      return tensePhrase(subject, project("V", rest.length ? rest.map(child => xbar(child)) : ["Ø"]), xbar(first));
     }
     return tensePhrase(subject, xbar(predicate));
   }
@@ -383,10 +431,10 @@ function xbar(tree) {
   if (tree.label === "NP") {
     const [first, ...rest] = tree.children;
     if (["Art.", "Det."].includes(first?.label) && rest.length) {
-      return project("D", [xbar(first), project("N", rest.map(xbar))]);
+      return project("D", [xbar(first), project("N", rest.map(child => xbar(child)))]);
     }
   }
-  const children = tree.children.map(xbar);
+  const children = tree.children.map(child => xbar(child));
   if (["NP", "VP", "AP", "PP"].includes(tree.label)) return project(tree.label[0], children);
   if (tree.label === "AdjP") return project("A", children);
   return node(headLabels[tree.label] || tree.label, ...children);
@@ -465,7 +513,8 @@ function draw(tree) {
     const mark = annotation(terminal ? item : item.label);
     const label = mark.label;
     hasMovement ||= Boolean(mark.id);
-    const struck = crossed || mark.kind === "~";
+    const indexedTrace = !terminal && item.children.length === 1 && item.children[0] === "tᵢ";
+    const struck = crossed || (mark.kind === "~" && !indexedTrace);
     const size = terminal ? 15 : 17;
     measure.font = size + "px Georgia";
     const rows = label.split("\n");
@@ -554,7 +603,8 @@ function generate() {
   const status = $("status");
   try {
     const parsed = parseSentence($("sentence").value);
-    const tree = $("view").value === "xbar" ? xbar(parsed) : parsed;
+    const showTrace = /^what did john buy\s*\??$/iu.test($("sentence").value.trim());
+    const tree = $("view").value === "xbar" ? xbar(parsed, showTrace) : parsed;
     draw(tree);
     $("structure").value = format(tree);
     $("edit-status").textContent = "";
@@ -587,9 +637,19 @@ $("examples").addEventListener("change", () => {
   const sentence = examples[$("examples").value];
   if (!sentence) return;
   $("sentence").value = sentence;
-  if ($("examples").value === "movement") $("view").value = "xbar";
+  if (["movement", "wh-trace"].includes($("examples").value)) $("view").value = "xbar";
   generate();
 });
+function drawLessonExample(sentence, style, exampleKey) {
+  $("sentence").value = sentence;
+  $("view").value = style;
+  $("examples").value = exampleKey;
+  generate();
+  $("diagram").focus();
+}
+$("wh-statement").addEventListener("click", () => drawLessonExample("John bought a book.", "phrase", ""));
+$("wh-trace").addEventListener("click", () => drawLessonExample(examples["wh-trace"], "xbar", "wh-trace"));
+
 $("apply").addEventListener("click", () => {
   try {
     const tree = parseStructure($("structure").value);
