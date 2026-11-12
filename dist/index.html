@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentence Syntax Tree</title>
+<style>
+:root { color-scheme: light; font: 16px/1.5 "Instrument Sans", system-ui, sans-serif; background: #f5f4ee; color: #202822; }
+body { margin: 0; }
+main { max-width: 1120px; margin: auto; padding: 36px 18px; }
+h1 { font: 600 clamp(2.2rem, 5vw, 3.8rem)/1.1 Georgia, serif; margin: 0 0 24px; }
+h2 { margin: 0 0 12px; font-size: 1.15rem; }
+section, form { background: #fffefa; border: 1px solid #dcded2; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+label { display: block; font-weight: 650; margin-bottom: 5px; }
+input, textarea, select, button { font: inherit; }
+select { max-width: 100%; padding: 7px; border: 1px solid #a9b5ab; border-radius: 7px; }
+.examples { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.toolbar label { margin: 0; }
+.guide dt { font-weight: 700; }
+.guide dd { margin: 0 0 8px; }
+input, textarea { box-sizing: border-box; width: 100%; border: 1px solid #a9b5ab; border-radius: 7px; padding: 9px; }
+textarea { font: .95rem/1.6 monospace; min-height: 150px; resize: vertical; }
+button { cursor: pointer; border-radius: 7px; border: 1px solid #245448; background: #245448; color: white; padding: 7px 13px; }
+button.secondary { background: transparent; color: #245448; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+:focus-visible { outline: 3px solid #a36d25; outline-offset: 3px; }
+summary { cursor: pointer; font-weight: 650; }
+details p, .hint { color: #4c5c51; margin: 8px 0 12px; }
+#status { color: #4c5c51; margin: 10px 0 0; }
+#status[data-error] { color: #8a2824; }
+#diagram { overflow: auto; }
+svg { display: block; margin: auto; font-family: Georgia, serif; color: #202822; }
+svg text { fill: currentColor; text-anchor: middle; }
+svg line { stroke: currentColor; stroke-width: 1.2; }
+</style>
+<main>
+  <h1>Sentence Syntax Tree</h1>
+  <form id="form">
+    <label for="sentence">English sentence</label>
+    <input id="sentence" required maxlength="1200" autocomplete="off">
+    <div class="actions">
+      <button>Build tree</button>
+      <button type="button" class="secondary" id="example">Load example</button>
+      <button type="button" class="secondary" id="question-example">Load question</button>
+    </div>
+    <div class="examples">
+      <div><label for="examples">Try a sentence type</label>
+      <select id="examples">
+        <option value="">Choose an example</option>
+        <optgroup label="By purpose">
+          <option value="statement">Declarative (statement)</option>
+          <option value="yes-no">Interrogative (yes/no question)</option>
+          <option value="movement">Reference image (WH and auxiliary movement)</option>
+          <option value="wh">Interrogative (WH question)</option>
+          <option value="imperative">Imperative (command)</option>
+          <option value="exclamation">Exclamative (exclamation)</option>
+        </optgroup>
+        <optgroup label="By clause structure">
+          <option value="simple">Simple</option>
+          <option value="compound">Compound</option>
+          <option value="complex">Complex</option>
+          <option value="compound-complex">Compound-complex</option>
+          <option value="coordinated">Coordinated verb phrases</option>
+        </optgroup>
+      </select></div>
+      <div><label for="view">Tree style</label>
+      <select id="view"><option value="phrase">Phrase structure</option><option value="xbar">X-bar and movement</option></select></div>
+    </div>
+    <p id="status" role="status"></p>
+  </form>
+  <section aria-labelledby="diagram-heading">
+    <h2 id="diagram-heading">Syntax tree</h2>
+    <div id="diagram" tabindex="0"></div>
+    <p class="hint">NP = noun phrase · VP = verb phrase · PP = prepositional phrase · WH = question phrase · Aux. = auxiliary verb</p>
+    <div class="toolbar">
+      <button type="button" class="secondary" id="download" disabled>Download SVG</button>
+      <button type="button" class="secondary" id="png" disabled>Download PNG</button>
+      <label for="zoom">Zoom</label><input id="zoom" type="range" min="50" max="150" value="100" step="10" style="width: 100px">
+    </div>
+    <p id="export-status" role="status"></p>
+  </section>
+  <section>
+    <details>
+      <summary>Edit tree structure</summary>
+      <p>Use parentheses or square brackets to group a label and its children. For example, <code>[NP [Art. The] [N boy]]</code>. Quote labels with spaces or brackets. Prefix a moved label with <code>@1:</code> and its starting position with <code>~1:</code> to link them. Use a different number for each arrow.</p>
+      <label for="structure">Bracketed tree</label>
+      <textarea id="structure" spellcheck="false"></textarea>
+      <div class="actions"><button id="apply">Draw edited tree</button></div>
+      <p id="edit-status" role="status"></p>
+    </details>
+  </section>
+  <section class="guide">
+    <details>
+      <summary>How to read and check a tree</summary>
+      <p>Read from the root down. Words under the same branch form a group. In X-bar view, a prime (′) marks the level between a head such as V and its full phrase, VP.</p>
+      <dl>
+        <dt>CP · Complementizer phrase</dt><dd>Contains the clause. In an inverted question, C holds the moved auxiliary and the WH phrase can sit at the left edge of CP.</dd>
+        <dt>TP · Tense phrase</dt><dd>Contains the subject and T′. T is the tense position. Ø marks a position with no pronounced word.</dd>
+        <dt>NP / DP · Noun / determiner phrase</dt><dd>NP groups the noun with its modifiers. DP shows a determiner such as “that” or “the” above NP.</dd>
+        <dt>VP / PP / AP · Verb / preposition / adjective phrase</dt><dd>These groups are built around verbs, prepositions, and adjectives. The reference diagram uses AP[+wh] for “where.”</dd>
+        <dt>Movement arrows</dt><dd>Read from the crossed-out copy to the pronounced position. In “Where did you get that hat?” the red arrow shows WH movement and the blue arrow shows auxiliary movement from T to C.</dd>
+      </dl>
+      <p>Check the pronounced words in order, find the subject and verb, and see what each modifier attaches to. Compare the labels with the conventions used in your class. Use the bracket editor to try another grouping or to draw an analysis you already have.</p>
+    </details>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const example = "The boy with red shorts kicked the ball and scored a goal.";
+const examples = {
+  movement: "Where did you get that hat?",
+  statement: "The small dog chased the cat.",
+  "yes-no": "Did the boy kick the ball?",
+  wh: "Which book did she read?",
+  imperative: "Please close the door.",
+  exclamation: "What a beautiful day it is!",
+  simple: "The dog barked loudly.",
+  compound: "The dog barked, and the cat ran.",
+  complex: "When the bell rang, the students left.",
+  "compound-complex": "When the bell rang, the students left, and the teacher closed the door.",
+  coordinated: example
+};
+const node = (label, ...children) => ({ label, children });
+const sets = Object.fromEntries(Object.entries({
+  "Art.": "a an the",
+  "Det.": "this that these those my your his her its our their some any each every no many much all both several",
+  "Pron.": "i you he she it we they me him us them who whom",
+  "Prep.": "with in on at by of for from to into through over under beside near before after about around across between without during behind toward up down",
+  "Conj.": "and or but nor yet so",
+  "Aux.": "can could may might must shall should will would",
+  "Adj.": "red blue green yellow black white old young small big little large tall short happy sad quick slow new good bad beautiful hungry tired loud quiet bright dark hot cold brown wooden early late amazing wonderful excited ready",
+  "Adv.": "not never always often sometimes very quite too here there then now well fast please",
+  "Verb": "am is are was were be been being has have had do does did go goes went gone walk walks walked run runs ran see sees saw seen watch watches watched kick kicks kicked score scores scored eat eats ate eaten drink drinks drank play plays played read reads write writes wrote written sing sings sang jump jumps jumped sleep sleeps slept chase chases chased bark barks barked sit sits sat stand stands stood give gives gave given take takes took taken make makes made like likes liked love loves loved say says said tell tells told think thinks thought find finds found buy buys bought bring brings brought open opens opened close closes closed look looks looked smile smiles smiled talk talks talked swim swims swam fly flies flew drive drives drove ride rides rode live lives lived work works worked study studies studied learn learns learned teach teaches taught meet meets met put puts catch catches caught throw throws threw want wants wanted need needs needed get gets got come comes came rain rains rained fall falls fell stop stops stopped start starts started finish finishes finished dance dances danced cook cooks cooked wash washes washed help helps helped clean cleans cleaned laugh laughs laughed cry cries cried shout shouts shouted whisper whispers whispered paint paints painted move moves moved climb climbs climbed ask asks asked answer answers answered build builds built draw draws drew drawn ring rings rang rung leave leaves left arrive arrives arrived wait waits waited hear hears heard turn turns turned enjoy enjoys enjoyed remember remembers remembered know knows knew known"
+}).map(([tag, list]) => [tag, new Set(list.split(" "))]));
+
+function tag(word) {
+  const lower = word.toLowerCase();
+  for (const [label, vocabulary] of Object.entries(sets)) {
+    if (vocabulary.has(lower)) return label;
+  }
+  if (/^\d/u.test(word)) return "Num.";
+  if (lower.endsWith("ing")) {
+    const stem = lower.slice(0, -3);
+    const bases = [stem, stem + "e"];
+    if (stem.length > 1 && stem.at(-1) === stem.at(-2)) bases.push(stem.slice(0, -1));
+    if (bases.some(base => sets.Verb.has(base))) return "Verb";
+  }
+  if (lower.endsWith("ly")) return "Adv.";
+  return "N";
+}
+const verbLike = token => token && ["Aux.", "Verb"].includes(token.tag);
+const leaf = token => node(token.tag, token.word);
+
+function nounPhrase(tokens) {
+  const prep = tokens.findIndex(token => token.tag === "Prep.");
+  if (prep === -1) return node("NP", ...tokens.map(leaf));
+  const attachments = [];
+  for (let start = prep; start < tokens.length;) {
+    let end = start + 1;
+    while (end < tokens.length && tokens[end].tag !== "Prep.") end++;
+    const object = tokens.slice(start + 1, end);
+    attachments.push(node("PP", leaf(tokens[start]), ...(object.length ? [nounPhrase(object)] : [])));
+    start = end;
+  }
+  return prep ? node("NP", nounPhrase(tokens.slice(0, prep)), ...attachments)
+    : attachments.length === 1 ? attachments[0] : node("NP", ...attachments);
+}
+
+function verbPhrase(tokens) {
+  const children = [];
+  let i = 0;
+  while (i < tokens.length) {
+    if (verbLike(tokens[i]) || tokens[i].tag === "Adv.") {
+      children.push(leaf(tokens[i++]));
+      continue;
+    }
+    if (tokens[i].tag === "Adj." && (i + 1 === tokens.length || tokens[i + 1].tag === "Adv.")) {
+      children.push(node("AdjP", leaf(tokens[i++])));
+      continue;
+    }
+    let end = i + 1;
+    while (end < tokens.length && !verbLike(tokens[end]) && tokens[end].tag !== "Adv.") end++;
+    children.push(nounPhrase(tokens.slice(i, end)));
+    i = end;
+  }
+  return node("VP", ...children);
+}
+
+function clause(tokens) {
+  const verb = tokens.findIndex(verbLike);
+  if (verb === -1) return nounPhrase(tokens);
+  if (verb === 0) return verbPhrase(tokens);
+  return node("Sentence", nounPhrase(tokens.slice(0, verb)), verbPhrase(tokens.slice(verb)));
+}
+
+const questionAuxiliaries = new Set("am is are was were do does did have has had can could may might must shall should will would".split(" "));
+const copulas = new Set("am is are was were".split(" "));
+const questionWords = new Map(Object.entries({
+  who: "Wh-Pron.", whom: "Wh-Pron.", what: "Wh-Pron.", which: "Wh-Det.",
+  whose: "Wh-Det.", where: "Wh-Adv.", when: "Wh-Adv.", why: "Wh-Adv.", how: "Wh-Adv."
+}));
+const lowerWord = token => token.word.toLowerCase();
+
+function questionBody(tokens, auxiliary) {
+  if (!tokens.length) return [];
+  // A subject pronoun gives a direct boundary before the predicate.
+  let boundary = tokens[0].tag === "Pron." ? 1 : tokens.findIndex((token, i) =>
+    i > 0 && verbLike(token) && !["Art.", "Det.", "Adj.", "Prep."].includes(tokens[i - 1].tag));
+  if (boundary < 0 && copulas.has(lowerWord(auxiliary))) {
+    boundary = tokens.findIndex((token, i) => i > 0 && (
+      ["Prep.", "Art.", "Det.", "Adv."].includes(token.tag) ||
+      (token.tag === "Adj." && tokens[i - 1].tag === "N")
+    ));
+  }
+  if (boundary < 0) boundary = tokens.length;
+  const subject = nounPhrase(tokens.slice(0, boundary));
+  const predicate = tokens.slice(boundary);
+  return predicate.length ? [subject, verbPhrase(predicate)] : [subject];
+}
+
+function parseQuestion(tokens) {
+  const first = lowerWord(tokens[0]);
+  const whTag = questionWords.get(first);
+  const auxiliaryIndex = tokens.findIndex(token => questionAuxiliaries.has(lowerWord(token)));
+  if (whTag) {
+    const firstVerb = tokens.findIndex(verbLike);
+    const phraseEnd = auxiliaryIndex > 0 && auxiliaryIndex === firstVerb ? auxiliaryIndex
+      : firstVerb > 0 ? firstVerb : 1;
+    const phrase = tokens.slice(0, phraseEnd);
+    const wh = node("WH", node(whTag, phrase[0].word), ...phrase.slice(1).map(leaf));
+    if (auxiliaryIndex > 0 && phraseEnd === auxiliaryIndex) {
+      const auxiliary = tokens[auxiliaryIndex];
+      const body = tokens.slice(auxiliaryIndex + 1);
+      if (whTag !== "Wh-Adv." && (!body.length || verbLike(body[0]) ||
+          (copulas.has(lowerWord(auxiliary)) && ["Adj.", "Prep."].includes(body[0].tag)))) {
+        return node("Question", node("NP", wh), verbPhrase(tokens.slice(auxiliaryIndex)));
+      }
+      return node("Question", wh, node("Aux.", auxiliary.word), ...questionBody(body, auxiliary));
+    }
+    const rest = tokens.slice(phraseEnd);
+    if (rest.length && whTag !== "Wh-Adv." && verbLike(rest[0])) {
+      return node("Question", node("NP", wh), verbPhrase(rest));
+    }
+    return rest.length ? node("Question", wh, clause(rest)) : node("Question", wh);
+  }
+  if (auxiliaryIndex === 0 && tokens.length > 1) {
+    return node("Question", node("Aux.", tokens[0].word), ...questionBody(tokens.slice(1), tokens[0]));
+  }
+  return node("Question", clause(tokens));
+}
+
+const subordinators = new Set("although because before after if once since though unless until when whenever while whether".split(" "));
+const hasVerb = tokens => tokens.some(verbLike);
+
+function subordinateClause(tokens) {
+  return node("Subordinate Clause", node("Subordinator", tokens[0].word), clause(tokens.slice(1)));
+}
+
+function splitSubordinate(tokens) {
+  const marker = tokens.findIndex(token => subordinators.has(lowerWord(token)));
+  if (marker === -1 || !hasVerb(tokens.slice(marker + 1))) return [clause(tokens)];
+  if (marker > 0 && hasVerb(tokens.slice(0, marker))) {
+    return [clause(tokens.slice(0, marker)), subordinateClause(tokens.slice(marker))];
+  }
+  if (marker === 0) {
+    // A comma after the subordinate verb marks the start of the main clause.
+    const boundary = tokens.findIndex((token, i) => token.commaBefore &&
+      hasVerb(tokens.slice(1, i)) && hasVerb(tokens.slice(i)));
+    if (boundary > 0) {
+      return [subordinateClause(tokens.slice(0, boundary)), clause(tokens.slice(boundary))];
+    }
+  }
+  return [clause(tokens)];
+}
+
+function clauseStructure(tokens) {
+  const parts = [];
+  let start = 0;
+  for (let i = 1; i < tokens.length - 1; i++) {
+    if (tokens[i].tag !== "Conj." || !hasVerb(tokens.slice(i + 1))) continue;
+    const left = tokens.slice(start, i);
+    if (!hasVerb(left) || (subordinators.has(lowerWord(left[0])) &&
+        !left.some(token => token.commaBefore))) continue;
+    parts.push(...splitSubordinate(left), leaf(tokens[i]));
+    start = i + 1;
+  }
+  const coordinated = parts.length > 0;
+  parts.push(...splitSubordinate(tokens.slice(start)));
+  const subordinate = parts.some(part => part.label === "Subordinate Clause");
+  const independent = parts.filter(part => part.label === "Sentence").length;
+  if (subordinate) return node(independent > 1 ? "Compound-Complex Sentence" : "Complex Sentence", ...parts);
+  if (!coordinated) return parts[0];
+  return node(independent > 1 ? "Compound Sentence" : "Conjoined Sentence", ...parts);
+}
+
+function exclamation(tokens, first) {
+  if (first !== "what" && first !== "how") {
+    return node("Exclamative", hasVerb(tokens) ? clauseStructure(tokens) : nounPhrase(tokens));
+  }
+  const verb = tokens.findIndex(verbLike);
+  const subject = tokens.slice(1, verb).findIndex(token => token.tag === "Pron.");
+  const boundary = subject >= 0 ? subject + 1 : verb;
+  const end = boundary > 0 ? boundary : tokens.length;
+  const phrase = node("WH", node(questionWords.get(first), tokens[0].word), ...tokens.slice(1, end).map(leaf));
+  return end < tokens.length ? node("Exclamative", phrase, clause(tokens.slice(end))) : node("Exclamative", phrase);
+}
+
+function parseSentence(sentence) {
+  const words = [...sentence.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’\-][\p{L}\p{M}\p{N}]+)*/gu)];
+  if (!words.length) throw new Error("Enter a sentence that contains words.");
+  if (words.length > 80) throw new Error("Use up to 80 words per tree.");
+  const tokens = words.map(([word], i) => ({
+    word, tag: tag(word),
+    commaBefore: i > 0 && sentence.slice(words[i - 1].index + words[i - 1][0].length, words[i].index).includes(",")
+  }));
+  const first = lowerWord(tokens[0]);
+  const emphatic = /[!！]\s*$/u.test(sentence);
+  if (/[?？]\s*$/u.test(sentence) || (!emphatic && questionWords.has(first) && !tokens.some(token => token.commaBefore))) return parseQuestion(tokens);
+  const commandStart = tokens.findIndex(token => token.tag !== "Adv.");
+  if (commandStart >= 0 && verbLike(tokens[commandStart]) && !["am", "is", "are", "was", "were"].includes(lowerWord(tokens[commandStart]))) {
+    return node("Imperative", verbPhrase(tokens));
+  }
+  if (emphatic) return exclamation(tokens, first);
+  if (!hasVerb(tokens)) {
+    throw new Error("The parser could not identify a verb. Try another sentence or enter a bracketed tree.");
+  }
+  return clauseStructure(tokens);
+}
+
+const headLabels = { "Verb": "V", "Aux.": "T", "Art.": "D", "Det.": "D", "Pron.": "N",
+  "Adj.": "A", "Adv.": "Adv", "Prep.": "P", "Wh-Pron.": "N", "Wh-Det.": "D", "Wh-Adv.": "Adv" };
+
+function project(label, children) {
+  return node(label + "P", node(label + "′", ...children));
+}
+
+function tensePhrase(subject, predicate, tense = node("T", "Ø")) {
+  return node("TP", ...(subject ? [xbar(subject)] : []),
+    node("T′", tense, predicate));
+}
+
+function xbarQuestion(tree) {
+  const wh = tree.children.find(child => child.label === "WH");
+  const subject = tree.children.find(child => child.label === "NP");
+  const aux = tree.children.find(child => child.label === "Aux.");
+  const predicate = tree.children.find(child => child.label === "VP");
+  const where = wh?.children[0]?.children[0]?.toLowerCase() === "where";
+  const whLabel = where ? "AP[+wh]" : "WH[+wh]";
+  const moved = wh ? node("@wh:" + whLabel, ...terminalWords(wh)) : null;
+  const cLabel = wh ? "C\n[+Q] [+wh]" : "C\n[+Q]";
+  const c = aux ? node("@aux:" + cLabel, ...aux.children) : node(cLabel, "Ø");
+  const t = aux ? node("~aux:T", ...aux.children) : node("T", "Ø");
+  const children = predicate ? predicate.children.map(xbar) : [];
+  if (wh && predicate) {
+    const copy = where
+      ? node("~wh:" + whLabel, node("A′", node("A", ...terminalWords(wh))))
+      : node("~wh:" + whLabel, ...terminalWords(wh));
+    children.splice(where ? 1 : children.length, 0, copy);
+  }
+  if (!subject && !predicate && !aux) {
+    return node("CP", ...(moved ? [moved] : []), node("C′", c,
+      ...tree.children.filter(child => child !== wh).map(xbar)));
+  }
+  return node("CP", ...(moved ? [moved] : []),
+    node("C′", c, tensePhrase(subject, project("V", children.length ? children : ["Ø"]), t)));
+}
+
+function xbar(tree) {
+  if (typeof tree === "string") return tree;
+  if (tree.label === "Question") return xbarQuestion(tree);
+  if (tree.label === "Sentence") {
+    const [subject, predicate] = tree.children;
+    const [first, ...rest] = predicate.children;
+    if (first?.label === "Aux.") {
+      return tensePhrase(subject, project("V", rest.length ? rest.map(xbar) : ["Ø"]), xbar(first));
+    }
+    return tensePhrase(subject, xbar(predicate));
+  }
+  if (tree.label === "Subordinate Clause") {
+    return node("CP", node("C′", node("C", ...tree.children[0].children), xbar(tree.children[1])));
+  }
+  if (tree.label === "NP") {
+    const [first, ...rest] = tree.children;
+    if (["Art.", "Det."].includes(first?.label) && rest.length) {
+      return project("D", [xbar(first), project("N", rest.map(xbar))]);
+    }
+  }
+  const children = tree.children.map(xbar);
+  if (["NP", "VP", "AP", "PP"].includes(tree.label)) return project(tree.label[0], children);
+  if (tree.label === "AdjP") return project("A", children);
+  return node(headLabels[tree.label] || tree.label, ...children);
+}
+
+function annotation(label) {
+  const match = /^([@~])([\w-]+):([\s\S]+)$/u.exec(label);
+  return match ? { kind: match[1], id: match[2], label: match[3] } : { label };
+}
+
+const atom = value => /^[^()[\]\s"]+$/u.test(value) ? value : JSON.stringify(value);
+function format(tree, depth = 0) {
+  const indent = "  ".repeat(depth);
+  if (tree.children.every(child => typeof child === "string")) {
+    return indent + "(" + [atom(tree.label), ...tree.children.map(atom)].join(" ") + ")";
+  }
+  return indent + "(" + atom(tree.label) + "\n" +
+    tree.children.map(child => typeof child === "string"
+      ? indent + "  " + atom(child) : format(child, depth + 1)).join("\n") + ")";
+}
+
+function parseStructure(text) {
+  const tokens = [];
+  let end = 0;
+  for (const match of text.matchAll(/"(?:\\.|[^"\\])*"|[()[\]]|[^\s()[\]"]+/gu)) {
+    if (text.slice(end, match.index).trim()) throw new Error("Check the quotation marks.");
+    tokens.push(match[0]);
+    end = match.index + match[0].length;
+  }
+  if (text.slice(end).trim()) throw new Error("Check the quotation marks.");
+  let i = 0;
+  function readAtom() {
+    const token = tokens[i++];
+    if (!token || ["(", ")", "[", "]"].includes(token)) throw new Error("Expected a label or word.");
+    const value = token.startsWith('"') ? JSON.parse(token) : token;
+    if (!value.trim()) throw new Error("Labels and words must contain text.");
+    return value;
+  }
+  function readNode(depth) {
+    if (depth > 30) throw new Error("Use up to 30 levels.");
+    const opener = tokens[i++];
+    const closer = opener === "(" ? ")" : opener === "[" ? "]" : null;
+    if (!closer) throw new Error("Start the tree with an opening bracket.");
+    const label = readAtom();
+    const children = [];
+    while (i < tokens.length && ![")", "]"].includes(tokens[i])) {
+      children.push(["(", "["].includes(tokens[i]) ? readNode(depth + 1) : readAtom());
+    }
+    if (tokens[i++] !== closer) throw new Error("A closing bracket is missing or does not match.");
+    if (!children.length) throw new Error("Each group needs a word or another group.");
+    return node(label, ...children);
+  }
+  if (tokens.length > 1500) throw new Error("Use a smaller tree.");
+  const tree = readNode(0);
+  if (i !== tokens.length) throw new Error("Enter one tree with a single root.");
+  return tree;
+}
+
+const ns = "http://www.w3.org/2000/svg";
+const measure = document.createElement("canvas").getContext("2d");
+function svgElement(name, attributes, text) {
+  const element = document.createElementNS(ns, name);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+let currentSvg;
+function draw(tree) {
+  let maxDepth = 0;
+  const xbarView = $("view").value === "xbar";
+  const spacing = xbarView ? 65 : 50;
+  let hasMovement = false;
+  function layout(item, depth, crossed = false) {
+    const terminal = typeof item === "string";
+    const mark = annotation(terminal ? item : item.label);
+    const label = mark.label;
+    hasMovement ||= Boolean(mark.id);
+    const struck = crossed || mark.kind === "~";
+    const size = terminal ? 15 : 17;
+    measure.font = size + "px Georgia";
+    const rows = label.split("\n");
+    const labelWidth = Math.max(...rows.map(row => measure.measureText(row).width)) + 22;
+    const children = terminal ? [] : item.children.map(child => layout(child, depth + 1, struck));
+    const childrenWidth = children.reduce((sum, child) => sum + child.width, 0);
+    maxDepth = Math.max(maxDepth, depth);
+    return { mark, rows, struck, size, depth, terminal, children, childrenWidth, width: Math.max(48, labelWidth, childrenWidth) };
+  }
+
+  const root = layout(tree, 0);
+  const width = Math.ceil(Math.max(330, root.width + (xbarView ? 116 : 36)));
+  const baseline = 29 + maxDepth * spacing;
+  const height = baseline + (hasMovement ? 90 : 25);
+  const movement = new Map();
+  const svg = svgElement("svg", { width, height,
+    viewBox: "0 0 " + width + " " + height,
+    role: "img", "aria-label": "Syntax tree for " + terminalWords(tree).join(" "),
+    style: "font-family: Georgia, serif; color: #202822; background: #fffefa" });
+  const lines = svgElement("g", { stroke: "currentColor", "stroke-width": 1.2 });
+  const labels = svgElement("g", { fill: "currentColor", "text-anchor": "middle" });
+  const defs = svgElement("defs", {});
+  const arrow = svgElement("marker", { id: "arrow", viewBox: "0 0 8 8", refX: 7, refY: 4,
+    markerWidth: 7, markerHeight: 7, orient: "auto" });
+  arrow.append(svgElement("path", { d: "M 0 0 L 8 4 L 0 8 Z", fill: "#202822" }));
+  defs.append(arrow);
+  const colors = ["#aa4655", "#4265a1", "#3e7561"];
+  colors.forEach((color, i) => {
+    const tip = svgElement("marker", { id: "movement-" + i, viewBox: "0 0 8 8", refX: 7, refY: 4,
+      markerWidth: 7, markerHeight: 7, orient: "auto" });
+    tip.append(svgElement("path", { d: "M 0 0 L 8 4 L 0 8 Z", fill: color }));
+    defs.append(tip);
+  });
+  const links = svgElement("g", { fill: "none", "stroke-width": 1.6 });
+  svg.append(defs, lines, links, labels);
+  function place(item, left) {
+    const x = left + item.width / 2;
+    const y = item.terminal && !xbarView ? baseline : 29 + item.depth * spacing;
+    const bottom = y + (item.rows.length - 1) * 19;
+    const text = svgElement("text", { x, y, "font-size": item.size });
+    if (item.struck) text.setAttribute("text-decoration", "line-through");
+    item.rows.forEach((row, i) => text.append(svgElement("tspan", { x, dy: i ? 19 : 0 }, row)));
+    labels.append(text);
+    const { id, kind } = item.mark;
+    let anchor = { x, y, bottom };
+    let childLeft = x - item.childrenWidth / 2;
+    for (const child of item.children) {
+      const childPoint = place(child, childLeft);
+      const attrs = { x1: x, y1: bottom + 7, x2: childPoint.x, y2: childPoint.y - 17 };
+      if (!child.terminal && !xbarView) attrs["marker-end"] = "url(#arrow)";
+      lines.append(svgElement("line", attrs));
+      childLeft += child.width;
+      if (item.children.length === 1) anchor = childPoint.anchor;
+    }
+    if (id) {
+      if (!movement.has(id)) movement.set(id, {});
+      movement.get(id)[kind] = anchor;
+    }
+    return { x, y, anchor };
+  }
+  place(root, (width - root.width) / 2);
+  [...movement.entries()].forEach(([id, pair], index) => {
+    const from = pair["~"], to = pair["@"];
+    if (!from || !to) return;
+    const color = id === "wh" ? 0 : id === "aux" ? 1 : index % colors.length;
+    const low = Math.max(from.bottom, to.bottom) + (id === "wh" ? 62 : 39);
+    const side = Math.max(12, Math.min(from.x, to.x) - 30);
+    const path = "M " + from.x + " " + (from.bottom + 8) + " C " +
+      (from.x - 12) + " " + low + ", " + side + " " + low + ", " + to.x + " " + (to.bottom + 9);
+    links.append(svgElement("path", { d: path, stroke: colors[color], "marker-end": "url(#movement-" + color + ")" }));
+  });
+  $("diagram").replaceChildren(svg);
+  currentSvg = svg;
+  applyZoom();
+  $("download").disabled = false;
+  $("png").disabled = false;
+}
+
+function terminalWords(tree) {
+  if (annotation(tree.label).kind === "~") return [];
+  return tree.children.flatMap(child => typeof child === "string"
+    ? child === "Ø" ? [] : [child] : terminalWords(child));
+}
+
+function generate() {
+  const status = $("status");
+  try {
+    const parsed = parseSentence($("sentence").value);
+    const tree = $("view").value === "xbar" ? xbar(parsed) : parsed;
+    draw(tree);
+    $("structure").value = format(tree);
+    $("edit-status").textContent = "";
+    status.removeAttribute("data-error");
+    status.textContent = "Automatic draft. Use Edit tree structure to correct the analysis.";
+  } catch (error) {
+    status.setAttribute("data-error", "");
+    status.textContent = error.message;
+    $("diagram").replaceChildren();
+    $("structure").value = "";
+    $("edit-status").textContent = "";
+    currentSvg = undefined;
+    $("download").disabled = true;
+    $("png").disabled = true;
+  }
+}
+
+$("form").addEventListener("submit", event => {
+  event.preventDefault();
+  $("examples").value = "";
+  generate();
+});
+$("example").addEventListener("click", loadExample);
+$("question-example").addEventListener("click", () => {
+  $("sentence").value = "What did the boy kick?";
+  $("examples").value = "";
+  generate();
+});
+$("examples").addEventListener("change", () => {
+  const sentence = examples[$("examples").value];
+  if (!sentence) return;
+  $("sentence").value = sentence;
+  if ($("examples").value === "movement") $("view").value = "xbar";
+  generate();
+});
+$("apply").addEventListener("click", () => {
+  try {
+    const tree = parseStructure($("structure").value);
+    draw(tree);
+    $("sentence").value = terminalWords(tree).join(" ");
+    $("status").removeAttribute("data-error");
+    $("status").textContent = "Drawing uses your edited structure.";
+    $("edit-status").textContent = "Tree updated.";
+  } catch (error) {
+    $("edit-status").textContent = error.message;
+  }
+});
+$("view").addEventListener("change", generate);
+$("zoom").addEventListener("input", applyZoom);
+
+function applyZoom() {
+  if (!currentSvg) return;
+  const scale = Number($("zoom").value) / 100;
+  currentSvg.style.width = Number(currentSvg.getAttribute("width")) * scale + "px";
+  currentSvg.style.height = Number(currentSvg.getAttribute("height")) * scale + "px";
+}
+
+function svgBlob() {
+  const copy = currentSvg.cloneNode(true);
+  copy.style.removeProperty("width");
+  copy.style.removeProperty("height");
+  return new Blob([new XMLSerializer().serializeToString(copy)], { type: "image/svg+xml" });
+}
+
+function saveFile(blob, extension) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "syntax-tree." + extension;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("download").addEventListener("click", () => saveFile(svgBlob(), "svg"));
+$("png").addEventListener("click", async () => {
+  const url = URL.createObjectURL(svgBlob());
+  const image = new Image();
+  $("export-status").textContent = "";
+  try {
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(2, 8192 / Math.max(image.width, image.height));
+    canvas.width = Math.ceil(image.width * scale);
+    canvas.height = Math.ceil(image.height * scale);
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#fffefa";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const png = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    if (!png) throw new Error("PNG export failed.");
+    saveFile(png, "png");
+  } catch {
+    $("export-status").textContent = "Could not export PNG. Try Download SVG.";
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+});
+function loadExample() {
+  $("examples").value = "";
+  $("sentence").value = example;
+  generate();
+}
+loadExample();
+</script>
+</html>
