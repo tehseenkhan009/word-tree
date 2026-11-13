@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Syntax Tree Practice</title>
+<style>
+:root { color-scheme: light; font: 16px/1.55 "Instrument Sans", system-ui, sans-serif; background: #f5f4ee; color: #202822; }
+body { margin: 0; }
+main { max-width: 850px; margin: auto; padding: 28px 18px; }
+a { color: #245448; }
+h1 { font: 600 clamp(2.2rem, 6vw, 3.8rem)/1.1 Georgia, serif; margin: 16px 0 22px; }
+h2, p { margin: 0 0 12px; }
+section { background: #fffefa; border: 1px solid #dcded2; border-radius: 14px; padding: clamp(16px, 4vw, 28px); margin-bottom: 14px; }
+[hidden] { display: none !important; }
+button, select { font: inherit; padding: 8px 13px; border-radius: 7px; border: 1px solid #245448; }
+button { cursor: pointer; background: #245448; color: white; }
+button.secondary, select { background: #fffefa; color: #245448; }
+button:disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: 3px solid #a36d25; outline-offset: 3px; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+#progress { color: #476057; }
+progress { display: block; width: 100%; accent-color: #245448; margin: 0 0 16px; }
+#sentence { background: #edf3ed; border-left: 3px solid #245448; padding: 12px 15px; font: 1.23rem/1.5 Georgia, serif; overflow-wrap: anywhere; }
+fieldset { border: 0; margin: 0 0 14px; padding: 0; }
+legend { font-weight: 700; margin-bottom: 9px; }
+.choice { display: flex; gap: 8px; align-items: baseline; padding: 7px 10px; margin: 4px 0; border: 1px solid #dcded2; border-radius: 7px; cursor: pointer; }
+.choice:has(input:checked) { background: #edf3ed; border-color: #245448; }
+#feedback, #hint-text { margin-top: 12px; }
+#solution { white-space: pre-wrap; overflow-wrap: anywhere; font: .95rem/1.6 ui-monospace, monospace; }
+#history-list { padding-left: 22px; }
+</style>
+</head>
+<body>
+<main>
+  <a href="./index.html" id="back">← Syntax Tree</a>
+  <h1>Syntax Tree Practice</h1>
+  <section aria-labelledby="round-name">
+    <h2 id="round-name" tabindex="-1"></h2>
+    <p id="progress"></p>
+    <progress id="meter" aria-label="Round progress"></progress>
+    <div id="exercise">
+      <p id="sentence"></p>
+      <form id="answer-form">
+        <fieldset id="choices"><legend id="prompt" tabindex="-1"></legend></fieldset>
+        <div class="toolbar">
+          <button id="check">Check answer</button>
+          <button type="button" class="secondary" id="hint">Show hint</button>
+          <button type="button" class="secondary" id="reveal" hidden>Reveal answer</button>
+          <button type="button" id="next" hidden>Next challenge</button>
+        </div>
+      </form>
+      <p id="hint-text" hidden></p>
+      <p id="feedback" role="status"></p>
+      <pre id="solution" hidden></pre>
+    </div>
+    <p id="result" role="status" hidden></p>
+  </section>
+  <section aria-labelledby="round-settings">
+    <h2 id="round-settings">Start a round</h2>
+    <div class="toolbar">
+      <label for="topic">Topic</label>
+      <select id="topic"><option value="mixed">Mixed syntax</option><option value="wh">WH-movement</option></select>
+      <button class="secondary" id="start">New round</button>
+    </div>
+  </section>
+  <section aria-labelledby="history-title">
+    <h2 id="history-title">Session history</h2>
+    <p>Rounds are saved in this tab until you close it.</p>
+    <p id="empty-history">No completed rounds yet.</p>
+    <ol id="history-list"></ol>
+    <button class="secondary" id="clear" hidden>Clear history</button>
+  </section>
+</main>
+<script>
+"use strict";
+
+const challenges = [
+  { topic: "mixed", sentence: "The small dog chased the cat.", prompt: "Which words form the subject noun phrase?", choices: ["The small dog", "chased the cat", "the cat"], hint: "Find who did the chasing.", feedback: "The small dog is the subject. The cat is the object.", solution: "[S [NP The small dog] [VP chased [NP the cat]]]" },
+  { topic: "mixed", sentence: "The girl with the red hat kicked the ball.", prompt: "What does “with the red hat” modify in this reading?", choices: ["the girl", "kicked", "the ball"], hint: "Ask who was wearing the hat.", feedback: "The prepositional phrase identifies the girl, so it belongs inside the subject NP.", solution: "[NP [NP The girl] [PP with [NP the red hat]]]" },
+  { topic: "mixed", sentence: "The dog barked, and the cat ran.", prompt: "Which clause structure fits this sentence?", choices: ["Compound", "Simple", "Complex"], hint: "Each side of “and” has a subject and a verb and could stand alone.", feedback: "Two independent clauses joined by “and” make this a compound sentence.", solution: "[Compound [S The dog barked] [Conj and] [S the cat ran]]" },
+  { topic: "mixed", sentence: "When the bell rang, the students left.", prompt: "Which words form the subordinate clause?", choices: ["When the bell rang", "the students left", "the bell"], hint: "Look for the part introduced by a word that tells you when the main action happened.", feedback: "“When” introduces the subordinate clause. “The students left” can stand on its own.", solution: "[Complex [CP when [S the bell rang]] [S the students left]]" },
+  { topic: "mixed", sentence: "The dog slept under the table.", prompt: "Which label belongs above “under the table”?", choices: ["PP", "VP", "NP"], hint: "“Under” is a preposition.", feedback: "The preposition “under” heads a PP. Its complement “the table” is an NP.", solution: "[PP [P under] [NP the table]]" },
+  { topic: "wh", sentence: "What did John buy?", prompt: "Where does the trace of “what” belong?", choices: ["After buy, in the object position", "After did, in the subject position", "Before did, at the front of CP"], hint: "Compare the question with “John bought a book.”", feedback: "“What” asks for the object of “buy”. The trace goes where the object would ordinarily appear.", solution: "Whatᵢ did John buy tᵢ?" },
+  { topic: "wh", sentence: "Which book will the student read?", prompt: "Which words move together to Spec-CP?", choices: ["Which book", "Which", "will the student"], hint: "The object being asked about is a whole phrase.", feedback: "The whole phrase “which book” moves together.", solution: "[CP Which bookᵢ [C′ [C will] [TP the student [T′ tⱼ [VP read tᵢ]]]]]" },
+  { topic: "wh", sentence: "Where did you get that hat?", prompt: "Which word undergoes auxiliary movement to C?", choices: ["did", "where", "get"], hint: "Find the word that carries past tense in this question.", feedback: "“Did” moves to C. “Where” is the WH-phrase at the edge of CP.", solution: "[CP Whereᵢ [C′ [C didⱼ] [TP you [T′ tⱼ [VP get that hat tᵢ]]]]]" },
+  { topic: "wh", sentence: "Who called Maya?", prompt: "What role does “who” have in this question?", choices: ["Subject of called", "Object of called", "Auxiliary verb"], hint: "Ask who performed the action.", feedback: "“Who” asks for the person who made the call. “Maya” is the object.", solution: "Whoᵢ [tᵢ called Maya]?" },
+  { topic: "wh", sentence: "What did Maya say that John bought?", prompt: "Which verb is linked to the WH trace?", choices: ["bought", "say", "did"], hint: "The question asks for the thing John bought.", feedback: "The trace is the object of “bought” inside the embedded clause.", solution: "Whatᵢ did Maya say [that John bought tᵢ]?" }
+];
+const adjectives = ["Wobbly", "Sneaky", "Disco", "Sleepy", "Turbo", "Confused", "Tiny", "Majestic"];
+const names = ["Clause Goblin", "Bracket Badger", "Syntax Squirrel", "Grammar Gecko", "Trace Raccoon", "Phrase Penguin", "Verb Yeti", "Noun Noodle"];
+const byId = id => document.getElementById(id);
+const storageKey = "syntax-tree-practice-v1";
+if (location.protocol === "file:" && location.pathname.endsWith("/outputs/practice.html")) {
+  byId("back").href = "./syntax-tree.html";
+}
+const saved = readSession();
+let round = saved.round;
+let history = saved.history;
+
+function readSession() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(storageKey));
+    if (value && Array.isArray(value.history)) return value;
+  } catch {
+    // Practice still works in memory when storage is unavailable.
+  }
+  return { round: null, history: [] };
+}
+
+function saveSession() {
+  try {
+    sessionStorage.setItem(storageKey, JSON.stringify({ round, history }));
+  } catch {
+    // The current page keeps the round in memory.
+  }
+}
+
+function shuffled(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function startRound() {
+  const topic = byId("topic").value;
+  const eligible = challenges.map((challenge, index) => ({ challenge, index }))
+    .filter(({ challenge }) => topic === "mixed" || challenge.topic === topic);
+  const questions = shuffled(eligible).slice(0, 5).map(({ index }) => ({
+    index, order: shuffled([0, 1, 2])
+  }));
+  const name = shuffled(adjectives)[0] + " " + shuffled(names)[0];
+  round = { name, topic, questions, position: 0, score: 0, attempts: 0, selection: null, hint: false, outcome: "" };
+  saveSession();
+  renderRound();
+  byId("round-name").focus();
+}
+
+function renderRound() {
+  const complete = round.position === round.questions.length;
+  const total = round.questions.length;
+  byId("round-name").textContent = round.name;
+  byId("topic").value = round.topic;
+  byId("progress").textContent = complete ? "Round complete" : "Challenge " + (round.position + 1) + " of " + total + " · " + round.score + " first try";
+  byId("meter").max = total;
+  byId("meter").value = round.position + Number(Boolean(round.outcome));
+  byId("exercise").hidden = complete;
+  byId("result").hidden = !complete;
+  if (complete) {
+    byId("result").textContent = round.score + " of " + total + " correct on the first try. Start a new round to keep practicing.";
+    return;
+  }
+  const current = round.questions[round.position];
+  const challenge = challenges[current.index];
+  const solved = Boolean(round.outcome);
+  byId("sentence").textContent = challenge.sentence;
+  byId("prompt").textContent = challenge.prompt;
+  byId("choices").replaceChildren(byId("prompt"));
+  for (const index of current.order) {
+    const label = document.createElement("label");
+    label.className = "choice";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "choice";
+    input.value = index;
+    input.required = true;
+    input.checked = index === round.selection;
+    input.disabled = solved;
+    label.append(input, document.createTextNode(challenge.choices[index]));
+    byId("choices").append(label);
+  }
+  byId("check").hidden = solved;
+  byId("hint").hidden = solved || round.hint;
+  byId("reveal").hidden = solved || !round.attempts;
+  byId("next").hidden = !solved;
+  byId("next").textContent = round.position + 1 === total ? "Finish round" : "Next challenge";
+  byId("hint-text").hidden = !round.hint || solved;
+  byId("hint-text").textContent = "Hint · " + challenge.hint;
+  byId("feedback").textContent = solved
+    ? (round.outcome === "correct" ? "Correct. " : "Answer revealed. ") + challenge.feedback
+    : round.attempts ? "Try again, or reveal the answer." : "";
+  byId("solution").hidden = !solved;
+  byId("solution").textContent = challenge.solution;
+}
+
+function renderHistory() {
+  const list = byId("history-list");
+  list.replaceChildren();
+  for (const entry of history) {
+    const item = document.createElement("li");
+    const topic = entry.topic === "wh" ? "WH-movement" : "Mixed syntax";
+    item.textContent = entry.name + " · " + topic + " · " + entry.score + "/" + entry.total + " first try";
+    list.append(item);
+  }
+  byId("empty-history").hidden = history.length > 0;
+  byId("clear").hidden = history.length === 0;
+}
+
+byId("answer-form").addEventListener("submit", event => {
+  event.preventDefault();
+  if (round.outcome) return;
+  const value = new FormData(event.currentTarget).get("choice");
+  if (value === null) return;
+  round.selection = Number(value);
+  round.attempts++;
+  if (round.selection === 0) {
+    round.outcome = "correct";
+    if (round.attempts === 1) round.score++;
+  }
+  saveSession();
+  renderRound();
+  (round.outcome ? byId("next") : byId("prompt")).focus();
+});
+byId("hint").addEventListener("click", () => {
+  round.hint = true;
+  saveSession();
+  renderRound();
+  byId("hint-text").tabIndex = -1;
+  byId("hint-text").focus();
+});
+byId("reveal").addEventListener("click", () => {
+  round.outcome = "revealed";
+  saveSession();
+  renderRound();
+  byId("next").focus();
+});
+byId("next").addEventListener("click", () => {
+  if (!round.outcome) return;
+  round.position++;
+  round.attempts = 0;
+  round.selection = null;
+  round.hint = false;
+  round.outcome = "";
+  if (round.position === round.questions.length) {
+    history = [{ name: round.name, topic: round.topic, score: round.score, total: round.questions.length }, ...history].slice(0, 20);
+    renderHistory();
+  }
+  saveSession();
+  renderRound();
+  (round.position === round.questions.length ? byId("round-name") : byId("prompt")).focus();
+});
+byId("start").addEventListener("click", startRound);
+byId("clear").addEventListener("click", () => {
+  history = [];
+  saveSession();
+  renderHistory();
+  byId("start").focus();
+});
+
+if (round) renderRound();
+else startRound();
+renderHistory();
+</script>
+</body>
+</html>
